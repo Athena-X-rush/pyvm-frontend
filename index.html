@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PyVM</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="topbar">
+        <h2>PyVM</h2>
+        <div>
+            <button onclick="runCode()">Run</button>
+            <button onclick="clearOutput()">Clear</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="editor-section" id="editor-section">
+            <!-- File Tabs -->
+            <div class="file-tabs" id="file-tabs">
+                <div class="file-tab active" data-file="Untitled.py">
+                    <span>Untitled.py</span>
+                    <button class="close-tab">&times;</button>
+                </div>
+                <!-- New File Button inline with tabs -->
+                <button class="new-file-btn" onclick="createNewFile()" title="New File">+</button>
+            </div>
+
+            <!-- Editor Container -->
+            <div id="editor-container">
+                <div id="editor-placeholder">Loading editor...</div>
+            </div>
+        </div>
+
+        <!-- Resizable Divider -->
+        <div class="resizer" id="resizer"></div>
+
+        <div class="right-panel" id="right-panel">
+            <div class="tabs">
+                <button class="tab-btn active" onclick="showTab('output', this)">Output</button>
+                <button class="tab-btn" onclick="showTab('bytecode', this)">Bytecode</button>
+                <button class="tab-btn" onclick="showTab('vm', this)">VM Trace</button>
+                <button class="tab-btn" onclick="showTab('debug', this)">Debug</button>
+            </div>
+
+            <!-- Input Dialog inside right panel -->
+            <div id="input-dialog" class="input-dialog hidden">
+                <div class="input-dialog-content">
+                    <h3>Input Required</h3>
+                    <p id="input-prompt"></p>
+                    <input type="text" id="input-value" placeholder="Enter your input here..." autocomplete="off">
+                    <div class="input-buttons">
+                        <button onclick="submitInput()">Submit</button>
+                        <button onclick="cancelInput()">Cancel</button>
+                    </div>
+                </div>
+            </div>
+
+            <pre id="output" class="tab-content"></pre>
+            <pre id="bytecode" class="tab-content hidden"></pre>
+            <pre id="vm" class="tab-content hidden"></pre>
+            <div id="debug" class="tab-content hidden">
+                <div class="debug-container">
+                    <div class="debug-controls">
+                        <button onclick="prevStep()">Prev</button>
+                        <button onclick="nextStep()">Next</button>
+                        <span id="step-counter">Step 0/0</span>
+                    </div>
+                    
+                    <div class="debug-content-wrapper">
+                        <div class="debug-info">
+                            <pre id="debug-content"></pre>
+                        </div>
+                        
+                        <!-- Visual Stack Panel -->
+                        <div class="stack-panel">
+                            <h3>Stack Visual</h3>
+                            <div id="stack-visual" class="stack-visual">
+                                <div class="stack-empty">Stack is empty</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Variables Panel -->
+                        <div class="vars-panel">
+                            <h3>Variables</h3>
+                            <div id="vars-visual" class="vars-visual">
+                                <div class="vars-empty">No variables</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.44.0/min/vs/loader.js" defer></script>
+    <script src="main.js" defer></script>
+</body>
+</html>
