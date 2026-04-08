@@ -522,7 +522,6 @@ function cancelInput() {
 // ===== RUN CODE =====
 async function runCode() {
     executionStartTime = performance.now();
-    showLoading('Running code...');
     
     const code = editor.getValue();
     let inputs = [];
@@ -539,7 +538,7 @@ async function runCode() {
     }
 
     try {
-        const res = await fetch("https://your-backend-app.onrender.com/run", {
+        const res = await fetch("https://pyvm-backend-1.onrender.com/run", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ code, inputs })
@@ -557,10 +556,8 @@ async function runCode() {
         currentStep = 0;
         renderStep();
         
-        hideLoading();
         showToast('Code executed successfully!', 'success');
     } catch (err) {
-        hideLoading();
         document.getElementById("output").innerText = "Error: Could not connect to backend.\n" + err.message;
         showTab('output');
         showToast('Connection error! Check backend URL.', 'error');
