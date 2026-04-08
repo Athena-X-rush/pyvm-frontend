@@ -7,9 +7,12 @@
 <body>
     <div class="topbar">
         <h2>PyVM</h2>
-        <div>
+        <div class="topbar-controls">
+            <button id="theme-toggle" onclick="toggleTheme()" title="Toggle Theme">🌙</button>
             <button onclick="runCode()">Run</button>
             <button onclick="clearOutput()">Clear</button>
+            <button onclick="exportProject()" title="Export Project">📥</button>
+            <button onclick="importProject()" title="Import Project">📥</button>
         </div>
     </div>
 
@@ -40,6 +43,30 @@
                 <button class="tab-btn" onclick="showTab('bytecode', this)">Bytecode</button>
                 <button class="tab-btn" onclick="showTab('vm', this)">VM Trace</button>
                 <button class="tab-btn" onclick="showTab('debug', this)">Debug</button>
+                <button class="tab-btn" onclick="showTab('stats', this)">Stats</button>
+            </div>
+            
+            <!-- Stats Panel -->
+            <div id="stats" class="tab-content hidden">
+                <div class="stats-container">
+                    <div class="stat-item">
+                        <h3>Execution Time</h3>
+                        <div id="execution-time" class="stat-value">0ms</div>
+                    </div>
+                    <div class="stat-item">
+                        <h3>Memory Usage</h3>
+                        <div class="memory-stats">
+                            <div class="memory-item">
+                                <span>Current:</span>
+                                <span id="memory-current" class="stat-value">0 KB</span>
+                            </div>
+                            <div class="memory-item">
+                                <span>Peak:</span>
+                                <span id="memory-peak" class="stat-value">0 KB</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Input Dialog inside right panel -->

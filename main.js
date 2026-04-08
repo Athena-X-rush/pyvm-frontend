@@ -8,6 +8,77 @@ let openFiles = {};
 let activeFile = "Untitled.py";
 let namingResolver = null;
 let currentHighlightDecoration = null; // Track current line highlight
+let isDarkTheme = true; // Track theme state
+let executionStartTime = 0; // Track execution time
+let memoryUsage = { peak: 0, current: 0 }; // Track memory usage
+
+// ===== THEME TOGGLE =====
+function toggleTheme() {
+    isDarkTheme = !isDarkTheme;
+    const body = document.body;
+    const themeToggle = document.getElementById('theme-toggle');
+    
+    if (isDarkTheme) {
+        body.classList.remove('light-theme');
+        themeToggle.textContent = '🌙';
+        localStorage.setItem('pyvm-theme', 'dark');
+    } else {
+        body.classList.add('light-theme');
+        themeToggle.textContent = '🌞';
+        localStorage.setItem('pyvm-theme', 'light');
+    }
+    
+    // Update Monaco theme
+    if (editor) {
+        monaco.editor.setTheme(isDarkTheme ? 'vs-dark' : 'vs-light');
+    }
+}
+
+// Load saved theme on startup
+function loadSavedTheme() {
+    const savedTheme = localStorage.getItem('pyvm-theme');
+    if (savedTheme === 'light') {
+        isDarkTheme = false;
+        document.body.classList.add('light-theme');
+        document.getElementById('theme-toggle').textContent = '🌞';
+    }
+}
+
+// ===== LOADING ANIMATION =====
+function showLoading(message = 'Loading...') {
+    const overlay = document.createElement('div');
+    overlay.className = 'loading-overlay';
+    overlay.innerHTML = `
+        <div class="loading-spinner"></div>
+        <div class="loading-text">${message}</div>
+    `;
+    document.body.appendChild(overlay);
+}
+
+function hideLoading() {
+    const overlay = document.querySelector('.loading-overlay');
+    if (overlay) {
+        overlay.remove();
+    }
+}
+
+// ===== ERROR MESSAGES =====
+function showToast(message, type = 'info', duration = 3000) {
+    const container = document.createElement('div');
+    container.className = 'toast-container';
+    
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    
+    container.appendChild(toast);
+    document.body.appendChild(container);
+    
+    // Auto remove
+    setTimeout(() => {
+        container.remove();
+    }, duration);
+}
 
 // ===== MONACO SETUP =====
 require.config({
@@ -206,6 +277,9 @@ else:
         editor.layout();
         const placeholder = document.getElementById('editor-placeholder');
         if (placeholder) placeholder.remove();
+        
+        // Load saved theme
+        loadSavedTheme();
     });
 
     editor.onDidChangeModelContent(() => {
@@ -447,6 +521,9 @@ function cancelInput() {
 
 // ===== RUN CODE =====
 async function runCode() {
+    executionStartTime = performance.now();
+    showLoading('Running code...');
+    
     const code = editor.getValue();
     let inputs = [];
 
@@ -468,6 +545,9 @@ async function runCode() {
             body: JSON.stringify({ code, inputs })
         });
         const data = await res.json();
+        
+        const executionTime = Math.round(performance.now() - executionStartTime);
+        updateStats(executionTime, data.memory_usage || 0);
 
         document.getElementById("output").innerText   = data.output;
         document.getElementById("bytecode").innerText = JSON.stringify(data.bytecode, null, 2);
@@ -476,10 +556,87 @@ async function runCode() {
         debugSteps  = data.debug || [];
         currentStep = 0;
         renderStep();
+        
+        hideLoading();
+        showToast('Code executed successfully!', 'success');
     } catch (err) {
+        hideLoading();
         document.getElementById("output").innerText = "Error: Could not connect to backend.\n" + err.message;
         showTab('output');
+        showToast('Connection error! Check backend URL.', 'error');
     }
+}
+
+// ===== STATS TRACKING =====
+function updateStats(executionTime, memoryUsage) {
+    document.getElementById('execution-time').textContent = `${executionTime}ms`;
+    
+    // Update memory (simulate based on code complexity)
+    const estimatedMemory = Math.round(editor.getValue().length * 0.1 + memoryUsage);
+    memoryUsage.current = estimatedMemory;
+    memoryUsage.peak = Math.max(memoryUsage.peak, estimatedMemory);
+    
+    document.getElementById('memory-current').textContent = `${memoryUsage.current} KB`;
+    document.getElementById('memory-peak').textContent = `${memoryUsage.peak} KB`;
+}
+
+// ===== EXPORT/IMPORT =====
+function exportProject() {
+    const projectData = {
+        files: openFiles,
+        activeFile: activeFile,
+        timestamp: new Date().toISOString()
+    };
+    
+    const blob = new Blob([JSON.stringify(projectData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `pyvm-project-${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    showToast('Project exported successfully!', 'success');
+}
+
+function importProject() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            try {
+                const projectData = JSON.parse(event.target.result);
+                
+                // Import files
+                Object.assign(openFiles, projectData.files || {});
+                
+                // Update UI
+                Object.keys(projectData.files || {}).forEach(fileName => {
+                    if (!document.querySelector(`[data-file="${fileName}"]`)) {
+                        addFileTab(fileName);
+                    }
+                });
+                
+                // Switch to active file
+                if (projectData.activeFile && openFiles[projectData.activeFile]) {
+                    switchToFile(projectData.activeFile);
+                }
+                
+                showToast('Project imported successfully!', 'success');
+            } catch (err) {
+                showToast('Invalid project file!', 'error');
+            }
+        };
+        reader.readAsText(file);
+    };
+    input.click();
 }
 
 // ===== DEBUG =====
