@@ -2,39 +2,45 @@
 <html>
 <head>
     <title>PyVM</title>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="dns-prefetch" href="//cdn.jsdelivr.net">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="topbar">
-        <h2>PyVM</h2>
+        <div class="brand">
+            <div class="brand-mark">P</div>
+            <div class="brand-copy">
+                <div class="brand-title">PyVM</div>
+                <div class="brand-subtitle">Python Virtual Machine</div>
+            </div>
+        </div>
         <div class="topbar-controls">
-            <button id="theme-toggle" onclick="toggleTheme()" title="Toggle Theme">🌙</button>
+            <button id="theme-toggle" class="icon-button" onclick="toggleTheme()" title="Toggle Theme" aria-label="Toggle theme">
+                <span class="theme-toggle-glyph" aria-hidden="true"></span>
+            </button>
             <button onclick="runCode()">Run</button>
             <button onclick="clearOutput()">Clear</button>
-            <button onclick="exportProject()" title="Export Project">📥 Export</button>
-            <button onclick="importProject()" title="Import Project">� Import</button>
+            <button onclick="exportCurrentFile()" title="Export Current File">Export</button>
+            <button onclick="importFile()" title="Import Python File">Import</button>
         </div>
     </div>
 
     <div class="container">
         <div class="editor-section" id="editor-section">
-            <!-- File Tabs -->
             <div class="file-tabs" id="file-tabs">
                 <div class="file-tab active" data-file="Untitled.py">
                     <span>Untitled.py</span>
                     <button class="close-tab">&times;</button>
                 </div>
-                <!-- New File Button inline with tabs -->
                 <button class="new-file-btn" onclick="createNewFile()" title="New File">+</button>
             </div>
 
-            <!-- Editor Container -->
             <div id="editor-container">
                 <div id="editor-placeholder">Loading editor...</div>
             </div>
         </div>
 
-        <!-- Resizable Divider -->
         <div class="resizer" id="resizer"></div>
 
         <div class="right-panel" id="right-panel">
@@ -43,33 +49,8 @@
                 <button class="tab-btn" onclick="showTab('bytecode', this)">Bytecode</button>
                 <button class="tab-btn" onclick="showTab('vm', this)">VM Trace</button>
                 <button class="tab-btn" onclick="showTab('debug', this)">Debug</button>
-                <button class="tab-btn" onclick="showTab('stats', this)">Stats</button>
-            </div>
-            
-            <!-- Stats Panel -->
-            <div id="stats" class="tab-content hidden">
-                <div class="stats-container">
-                    <div class="stat-item">
-                        <h3>Execution Time</h3>
-                        <div id="execution-time" class="stat-value">0ms</div>
-                    </div>
-                    <div class="stat-item">
-                        <h3>Memory Usage</h3>
-                        <div class="memory-stats">
-                            <div class="memory-item">
-                                <span>Current:</span>
-                                <span id="memory-current" class="stat-value">0 KB</span>
-                            </div>
-                            <div class="memory-item">
-                                <span>Peak:</span>
-                                <span id="memory-peak" class="stat-value">0 KB</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
 
-            <!-- Input Dialog inside right panel -->
             <div id="input-dialog" class="input-dialog hidden">
                 <div class="input-dialog-content">
                     <h3>Input Required</h3>
@@ -83,8 +64,8 @@
             </div>
 
             <pre id="output" class="tab-content"></pre>
-            <pre id="bytecode" class="tab-content hidden"></pre>
-            <pre id="vm" class="tab-content hidden"></pre>
+            <div id="bytecode" class="tab-content hidden trace-panel"></div>
+            <div id="vm" class="tab-content hidden trace-panel"></div>
             <div id="debug" class="tab-content hidden">
                 <div class="debug-container">
                     <div class="debug-controls">
@@ -97,16 +78,14 @@
                         <div class="debug-info">
                             <pre id="debug-content"></pre>
                         </div>
-                        
-                        <!-- Visual Stack Panel -->
+
                         <div class="stack-panel">
                             <h3>Stack Visual</h3>
                             <div id="stack-visual" class="stack-visual">
                                 <div class="stack-empty">Stack is empty</div>
                             </div>
                         </div>
-                        
-                        <!-- Variables Panel -->
+
                         <div class="vars-panel">
                             <h3>Variables</h3>
                             <div id="vars-visual" class="vars-visual">
@@ -119,7 +98,6 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.44.0/min/vs/loader.js" defer></script>
     <script src="main.js" defer></script>
 </body>
 </html>
