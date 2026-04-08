@@ -27,6 +27,90 @@ body.light-theme {
     --success: #059669;
 }
 
+/* Light theme specific overrides */
+.light-theme .topbar {
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+}
+
+.light-theme .container {
+    background: var(--bg-primary);
+}
+
+.light-theme .editor-section {
+    background: var(--bg-primary);
+    border-right: 1px solid var(--border);
+}
+
+.light-theme .right-panel {
+    background: var(--bg-primary);
+    border-left: 1px solid var(--border);
+}
+
+.light-theme .file-tabs {
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+}
+
+.light-theme .file-tab {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+}
+
+.light-theme .file-tab.active {
+    background: var(--bg-primary);
+    border-bottom: 1px solid var(--accent);
+}
+
+.light-theme .tab-btn {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+}
+
+.light-theme .tab-btn.active {
+    background: var(--bg-primary);
+    border-bottom: 1px solid var(--accent);
+    color: var(--accent);
+}
+
+.light-theme .debug-controls {
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+}
+
+.light-theme .debug-info {
+    background: var(--bg-primary);
+    border-right: 1px solid var(--border);
+}
+
+.light-theme .stack-panel, .light-theme .vars-panel {
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border);
+}
+
+.light-theme .stack-item, .light-theme .var-item {
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+}
+
+.light-theme .input-dialog {
+    background: var(--bg-secondary);
+    border: 1px solid var(--accent);
+}
+
+.light-theme .stat-item {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+}
+
+.light-theme .memory-item {
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+}
+
 body {
     font-family: monospace;
     background: var(--bg-primary);
