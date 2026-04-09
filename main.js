@@ -613,34 +613,154 @@ function formatDebugValue(value) {
     return JSON.stringify(value, null, 2);
 }
 
-function renderBytecodePanel(bytecode) {
+function formatInlineValue(value) {
+    if (value === null || value === undefined) {
+        return 'None';
+    }
+    if (typeof value === 'string') {
+        return `"${value}"`;
+    }
+    return JSON.stringify(value);
+}
+
+function describeStackDiff(previousStack, currentStack) {
+    const before = Array.isArray(previousStack) ? previousStack : [];
+    const after = Array.isArray(currentStack) ? currentStack : [];
+
+    if (JSON.stringify(before) === JSON.stringify(after)) {
+        return 'No stack change';
+    }
+    if (after.length === before.length + 1) {
+        return `Pushed ${formatInlineValue(after[after.length - 1])}`;
+    }
+    if (after.length + 1 === before.length) {
+        return `Popped ${formatInlineValue(before[before.length - 1])}`;
+    }
+    if (after.length === before.length && after.length > 0) {
+        const changedIndex = after.findIndex((item, index) => JSON.stringify(item) !== JSON.stringify(before[index]));
+        if (changedIndex !== -1) {
+            return `Replaced stack[${changedIndex}] ${formatInlineValue(before[changedIndex])} -> ${formatInlineValue(after[changedIndex])}`;
+        }
+    }
+    return `Stack changed ${before.length} -> ${after.length} items`;
+}
+
+function describeVariableDiff(previousVars, currentVars) {
+    const before = previousVars || {};
+    const after = currentVars || {};
+    const changes = [];
+
+    Object.keys(after).forEach((key) => {
+        if (!(key in before)) {
+            changes.push(`Created ${key} = ${formatInlineValue(after[key])}`);
+            return;
+        }
+        if (JSON.stringify(before[key]) !== JSON.stringify(after[key])) {
+            changes.push(`Updated ${key}: ${formatInlineValue(before[key])} -> ${formatInlineValue(after[key])}`);
+        }
+    });
+
+    Object.keys(before).forEach((key) => {
+        if (!(key in after)) {
+            changes.push(`Removed ${key}`);
+        }
+    });
+
+    return changes;
+}
+
+function groupBytecodeByLine(bytecode, sourceCode) {
+    const sourceLines = typeof sourceCode === 'string' ? sourceCode.split('\n') : [];
+    const grouped = new Map();
+
+    bytecode.forEach((instr, index) => {
+        const lineNumber = instr[2] ?? 'N/A';
+        if (!grouped.has(lineNumber)) {
+            grouped.set(lineNumber, {
+                lineNumber,
+                source: typeof lineNumber === 'number' && lineNumber > 0 ? (sourceLines[lineNumber - 1] || '').trim() : '',
+                instructions: [],
+            });
+        }
+
+        grouped.get(lineNumber).instructions.push({
+            index,
+            opcode: instr[0],
+            operand: instr[1],
+        });
+    });
+
+    return Array.from(grouped.values());
+}
+
+function describeVmStep(previousStep, step) {
+    const prevStack = Array.isArray(previousStep?.stack) ? previousStep.stack : [];
+    const currStack = Array.isArray(step?.stack) ? step.stack : [];
+    const prevVars = previousStep?.vars || {};
+    const currVars = step?.vars || {};
+    const operand = step?.val;
+    const operandText = operand === null || operand === undefined ? 'None' : `"${String(operand)}"`;
+    const stackTopBefore = prevStack.length ? formatInlineValue(prevStack[prevStack.length - 1]) : 'nothing';
+    const stackTopAfter = currStack.length ? formatInlineValue(currStack[currStack.length - 1]) : 'nothing';
+    const createdVars = Object.keys(currVars).filter((key) => !(key in prevVars));
+    const updatedVars = Object.keys(currVars).filter((key) => key in prevVars && JSON.stringify(currVars[key]) !== JSON.stringify(prevVars[key]));
+
+    switch (step?.op) {
+        case 'INPUT':
+            return `INPUT pushed ${stackTopAfter} onto the stack`;
+        case 'PUSH':
+            return `PUSH loaded ${stackTopAfter} onto the stack`;
+        case 'CAST':
+            return `CAST converted ${formatInlineValue(prevStack[prevStack.length - 1])} to ${formatInlineValue(currStack[currStack.length - 1])}`;
+        case 'STORE':
+            if (createdVars.includes(step.val) || updatedVars.includes(step.val)) {
+                return `STORE moved ${formatInlineValue(currVars[step.val])} from the stack into variable ${step.val}`;
+            }
+            return `STORE updated variable ${step.val}`;
+        case 'PRINT':
+            return `PRINT consumed ${stackTopBefore} and sent it to the output`;
+        case 'PRINT_MULTI':
+            return `PRINT_MULTI combined the top ${step.val} stack values and sent them to the output`;
+        case 'EVAL':
+            return `EVAL checked ${operandText} and pushed ${stackTopAfter}`;
+        case 'JUMP_IF_FALSE':
+            return prevStack[prevStack.length - 1]
+                ? `JUMP_IF_FALSE checked the condition and continued`
+                : `JUMP_IF_FALSE checked the condition and jumped to ${step.val}`;
+        case 'JUMP':
+            return `JUMP transferred control to label ${step.val}`;
+        case 'LABEL':
+            return `LABEL marked position ${step.val} for control flow`;
+        default:
+            return `${step?.op || 'STEP'} executed with operand ${operandText}`;
+    }
+}
+
+function renderBytecodePanel(bytecode, sourceCode) {
     const container = document.getElementById("bytecode");
     if (!bytecode || bytecode.length === 0) {
         container.innerHTML = '<div class="trace-empty">No bytecode generated yet. Run a program to see the compiler output.</div>';
         return;
     }
 
+    const groupedLines = groupBytecodeByLine(bytecode, sourceCode);
+
     container.innerHTML = `
-        <div class="trace-intro">
-            <div class="trace-title">Compiled Bytecode</div>
-            <div class="trace-subtitle">This is the instruction list produced by the compiler before execution starts.</div>
-        </div>
-        <div class="trace-list">
-            ${bytecode.map((instr, index) => `
-                <div class="trace-card">
-                    <div class="trace-card-header">
-                        <div class="trace-card-title">Instruction ${index}</div>
-                        <div class="trace-badge">${escapeHtml(String(instr[0] ?? ''))}</div>
+        <div class="bytecode-lines">
+            ${groupedLines.map((group) => `
+                <div class="bytecode-line-card">
+                    <div class="bytecode-line-header">
+                        <span class="bytecode-line-number">Line ${escapeHtml(String(group.lineNumber))}</span>
+                        <code class="bytecode-source">${escapeHtml(group.source || '(generated control-flow instruction)')}</code>
                     </div>
-                    <div class="trace-card-body">
-                        <div class="trace-field">
-                            <span class="trace-field-label">Operand</span>
-                            <div class="trace-field-value">${escapeHtml(instr[1] === null || instr[1] === undefined ? 'None' : String(instr[1]))}</div>
-                        </div>
-                        <div class="trace-field">
-                            <span class="trace-field-label">Source Line</span>
-                            <div class="trace-field-value">${escapeHtml(String(instr[2] ?? 'N/A'))}</div>
-                        </div>
+                    <div class="bytecode-command-list">
+                        ${group.instructions.map((instruction) => `
+                            <div class="bytecode-command-item">
+                                <span class="bytecode-index">${instruction.index}</span>
+                                <span class="trace-badge">${escapeHtml(String(instruction.opcode ?? ''))}</span>
+                                <code class="bytecode-operand">${escapeHtml(instruction.operand === null || instruction.operand === undefined ? 'None' : String(instruction.operand))}</code>
+                            </div>
+                        `).join('')}
                     </div>
                 </div>
             `).join('')}
@@ -656,45 +776,58 @@ function renderVmTracePanel(debugSteps) {
     }
 
     container.innerHTML = `
-        <div class="trace-intro">
-            <div class="trace-title">VM Execution Trace</div>
-            <div class="trace-subtitle">This shows how the virtual machine executed the bytecode step by step, including stack and variable changes.</div>
-        </div>
-        <div class="trace-list">
-            ${debugSteps.map((step) => `
-                <div class="trace-card">
-                    <div class="trace-card-header">
-                        <div class="trace-card-title">Step ${escapeHtml(String(step.step))}</div>
-                        <div class="trace-badge">${escapeHtml(String(step.op || ''))}</div>
+        <div class="vm-timeline">
+            ${debugSteps.map((step, index) => {
+                const previousStep = index > 0 ? debugSteps[index - 1] : { stack: [], vars: {} };
+                const variableDiffs = describeVariableDiff(previousStep.vars || {}, step.vars || {});
+                const stackDiff = describeStackDiff(previousStep.stack || [], step.stack || []);
+                const narrative = describeVmStep(previousStep, step);
+
+                return `
+                    <div class="vm-timeline-item">
+                        <div class="vm-timeline-marker">
+                            <span>${escapeHtml(String(step.step))}</span>
+                        </div>
+                        <div class="vm-timeline-card">
+                            <div class="vm-timeline-header">
+                                <div>
+                                    <div class="vm-timeline-title">${escapeHtml(narrative)}</div>
+                                    <div class="vm-timeline-meta">Step ${escapeHtml(String(step.step))} · Line ${escapeHtml(step.line && step.line > 0 ? String(step.line) : 'N/A')} · ${escapeHtml(String(step.op || ''))}</div>
+                                </div>
+                                <div class="trace-badge">${escapeHtml(String(step.op || ''))}</div>
+                            </div>
+                            <div class="vm-diff-grid">
+                                <div class="vm-diff-box">
+                                    <span class="trace-field-label">Stack Change</span>
+                                    <div class="trace-field-value">${escapeHtml(stackDiff)}</div>
+                                </div>
+                                <div class="vm-diff-box">
+                                    <span class="trace-field-label">Variable Change</span>
+                                    <div class="trace-field-value">${variableDiffs.length ? variableDiffs.map((entry) => escapeHtml(entry)).join('<br>') : 'No variable change'}</div>
+                                </div>
+                            </div>
+                            <div class="vm-state-grid">
+                                <div class="trace-field">
+                                    <span class="trace-field-label">Stack After Step</span>
+                                    <div class="trace-field-value">${escapeHtml(formatDebugValue(step.stack || []))}</div>
+                                </div>
+                                <div class="trace-field">
+                                    <span class="trace-field-label">Variables After Step</span>
+                                    <div class="trace-field-value">${escapeHtml(formatDebugValue(step.vars || {}))}</div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="trace-card-body">
-                        <div class="trace-field">
-                            <span class="trace-field-label">Operand</span>
-                            <div class="trace-field-value">${escapeHtml(step.val === null || step.val === undefined ? 'None' : String(step.val))}</div>
-                        </div>
-                        <div class="trace-field">
-                            <span class="trace-field-label">Source Line</span>
-                            <div class="trace-field-value">${escapeHtml(step.line && step.line > 0 ? String(step.line) : 'N/A')}</div>
-                        </div>
-                        <div class="trace-field">
-                            <span class="trace-field-label">Stack After Step</span>
-                            <div class="trace-field-value">${escapeHtml(formatDebugValue(step.stack || []))}</div>
-                        </div>
-                        <div class="trace-field">
-                            <span class="trace-field-label">Variables After Step</span>
-                            <div class="trace-field-value">${escapeHtml(formatDebugValue(step.vars || {}))}</div>
-                        </div>
-                    </div>
-                </div>
-            `).join('')}
+                `;
+            }).join('')}
         </div>
     `;
 }
 
-function applyRunResponse(data) {
+function applyRunResponse(data, sourceCode) {
     const outputEl = document.getElementById("output");
     outputEl.innerText = data.output || "";
-    renderBytecodePanel(data.bytecode || []);
+    renderBytecodePanel(data.bytecode || [], sourceCode);
     renderVmTracePanel(data.debug || []);
 
     debugSteps  = data.debug || [];
@@ -714,7 +847,7 @@ async function runCode() {
                 body: JSON.stringify({ code, inputs })
             });
             data = await res.json();
-            applyRunResponse(data);
+            applyRunResponse(data, code);
 
             if (data.status !== 'needs_input') {
                 break;
